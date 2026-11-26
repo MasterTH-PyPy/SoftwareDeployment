@@ -68,7 +68,7 @@ else
                 <input type="text" @bind="_successExitCodes" placeholder="0,3010" />
             </div>
             <div class="field">
-                <label>Nutzdaten</label>
+                <label>Installationsdatei (EXE/MSI/BAT/PS1 oder ZIP)</label>
                 <InputFile OnChange="OnFileSelected" />
                 @if (_selectedFile is not null)
                 {
@@ -79,7 +79,7 @@ else
         <div class="field">
             <div class="checkbox">
                 <input type="checkbox" id="archive" @bind="_payloadIsArchive" />
-                <label for="archive" style="margin:0;">Nutzdaten ist ein ZIP-Archiv (vor Ausführung entpacken)</label>
+                <label for="archive" style="margin:0;">Datei ist ein ZIP-Archiv (vor Ausführung entpacken)</label>
             </div>
             <div class="checkbox">
                 <input type="checkbox" id="makeCurrent" @bind="_makeCurrent" />
@@ -274,7 +274,7 @@ else
         string version = _version.Trim();
         if (string.IsNullOrEmpty(version)) { _uploadError = "Bitte eine Version angeben."; return; }
         if (string.IsNullOrWhiteSpace(_commandFile)) { _uploadError = "Bitte die auszuführende Datei angeben."; return; }
-        if (_selectedFile is null) { _uploadError = "Bitte eine Nutzdaten-Datei auswählen."; return; }
+        if (_selectedFile is null) { _uploadError = "Bitte eine Installationsdatei auswählen."; return; }
 
         _uploading = true;
         try
