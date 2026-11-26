@@ -1,0 +1,149 @@
+@page "/settings"
+@rendermode InteractiveServer
+@inject SettingsService Settings
+@inject IDirectoryService Ad
+
+<h1>Einstellungen</h1>
+
+<div class="card">
+    <h2>Allgemein</h2>
+    <div class="field-row">
+        <div class="field">
+            <label>Poll-Intervall (Sekunden)</label>
+            <input type="number" min="30" max="86400" @bind="_pollInterval" />
+            <span class="muted">Wie oft Clients beim Server nachfragen. Standard: 300 (5 min).</span>
+        </div>
+        <div class="field">
+            <label>Organisation</label>
+            <input type="text" @bind="_orgName" />
+        </div>
+    </div>
+    <div class="field">
+        <div class="checkbox">
+            <input type="checkbox" id="autoapprove" @bind="_autoApprove" />
+            <label for="autoapprove" style="margin:0;">Neue Clients automatisch freigeben (nicht empfohlen)</label>
+        </div>
+    </div>
+    @if (_generalSaved)
+    {
+        <div class="alert alert-success">Gespeichert.</div>
+    }
+    <button class="btn btn-primary" @onclick="SaveGeneral">Speichern</button>
+</div>
+
+<div class="card">
+    <h2>Installations-Key (Enrollment)</h2>
+    <p class="muted">
+        Dieser Schlüssel muss bei der Client-Installation eingegeben werden. Ohne gültigen
+        Schlüssel nimmt der Server keine Registrierung an. Er wird verschlüsselt gespeichert.
+    </p>
+    <div class="field">
+        <div class="key-display">@_enrollmentKey</div>
+    </div>
+    @if (_keyRegenerated)
+    {
+        <div class="alert alert-warning">
+            Neuer Schlüssel erzeugt. Bereits registrierte Clients sind nicht betroffen –
+            neue Installationen benötigen jedoch diesen Schlüssel.
+        </div>
+    }
+    <button class="btn" @onclick="RegenerateKey">Neuen Schlüssel erzeugen</button>
+</div>
+
+<div class="card">
+    <h2>Administrator-Kennwort ändern</h2>
+    <div class="field-row">
+        <div class="field">
+            <label>Aktuelles Kennwort</label>
+            <input type="password" @bind="_oldPw" />
+        </div>
+        <div class="field">
+            <label>Neues Kennwort</label>
+            <input type="password" @bind="_newPw" />
+        </div>
+        <div class="field">
+            <label>Bestätigen</label>
+            <input type="password" @bind="_confirmPw" />
+        </div>
+    </div>
+    @if (_pwMessage is not null)
+    {
+        <div class="alert @(_pwOk ? "alert-success" : "alert-danger")">@_pwMessage</div>
+    }
+    <button class="btn btn-primary" @onclick="ChangePassword">Kennwort ändern</button>
+</div>
+
+<div class="card">
+    <h2>Verzeichnis (Active Directory)</h2>
+    @{
+        var dom = Ad.GetDomainInfo();
+    }
+    @if (dom.Connected)
+    {
+        <div class="alert alert-success">Verbunden: <span class="mono">@dom.Name</span>@(dom.DnsName is null ? "" : $" ({dom.DnsName})")</div>
+    }
+    else
+    {
+        <div class="alert alert-warning">
+            Nicht verbunden. @dom.Error
+        </div>
+    }
+</div>
+
+@code {
+    private int _pollInterval = 300;
+    private bool _autoApprove;
+    private string _orgName = "SonOG";
+    private bool _generalSaved;
+
+    private string _enrollmentKey = "";
+    private bool _keyRegenerated;
+
+    private string _oldPw = "", _newPw = "", _confirmPw = "";
+    private string? _pwMessage;
+    private bool _pwOk;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var s = await Settings.GetAsync();
+        _pollInterval = s.PollIntervalSeconds;
+        _autoApprove = s.AutoApproveClients;
+        _orgName = s.OrganizationName;
+        _enrollmentKey = await Settings.GetEnrollmentKeyAsync();
+    }
+
+    private async Task SaveGeneral()
+    {
+        await Settings.SaveGeneralAsync(_pollInterval, _autoApprove, _orgName);
+        _generalSaved = true;
+    }
+
+    private async Task RegenerateKey()
+    {
+        _enrollmentKey = await Settings.RegenerateEnrollmentKeyAsync();
+        _keyRegenerated = true;
+    }
+
+    private async Task ChangePassword()
+    {
+        _pwMessage = null;
+        if (!await Settings.VerifyAdminPasswordAsync(_oldPw))
+        {
+            _pwOk = false; _pwMessage = "Aktuelles Kennwort ist falsch.";
+            return;
+        }
+        if (_newPw.Length < 10)
+        {
+            _pwOk = false; _pwMessage = "Das neue Kennwort muss mindestens 10 Zeichen haben.";
+            return;
+        }
+        if (_newPw != _confirmPw)
+        {
+            _pwOk = false; _pwMessage = "Die neuen Kennwörter stimmen nicht überein.";
+            return;
+        }
+        await Settings.SetAdminPasswordAsync(_newPw);
+        _oldPw = _newPw = _confirmPw = "";
+        _pwOk = true; _pwMessage = "Kennwort geändert.";
+    }
+}

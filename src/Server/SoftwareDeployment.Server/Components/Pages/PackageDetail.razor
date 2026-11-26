@@ -1,0 +1,424 @@
+@page "/packages/{Id:int}"
+@rendermode InteractiveServer
+@inject IDbContextFactory<DeploymentDbContext> DbFactory
+@inject PackageStorage Storage
+@inject IDirectoryService Ad
+@inject Microsoft.Extensions.Options.IOptions<ServerOptions> Options
+@inject NavigationManager Nav
+
+@if (_package is null)
+{
+    <div class="card"><p>Paket nicht gefunden. <a href="/packages">Zurück</a></p></div>
+}
+else
+{
+    <div class="page-head">
+        <h1>@_package.Name</h1>
+        <a class="btn btn-sm" href="/packages">← Übersicht</a>
+    </div>
+
+    <div class="card">
+        <div class="field-row">
+            <div class="field">
+                <label>Beschreibung</label>
+                <div class="muted">@(_package.Description ?? "—")</div>
+            </div>
+            <div class="field">
+                <label>Status</label>
+                <div class="checkbox">
+                    <input type="checkbox" id="enabled" checked="@_package.IsEnabled" @onchange="ToggleEnabled" />
+                    <label for="enabled" style="margin:0;">Aktiv (wird an Clients verteilt)</label>
+                </div>
+            </div>
+        </div>
+        <button class="btn btn-danger btn-sm" @onclick="DeletePackage">Paket löschen</button>
+    </div>
+
+    <!-- ---- upload new version ---- -->
+    <div class="card">
+        <h2>Neue Version hochladen</h2>
+        <div class="field-row">
+            <div class="field">
+                <label>Version</label>
+                <input type="text" @bind="_version" placeholder="z. B. 23.01" />
+            </div>
+            <div class="field">
+                <label>Installer-Typ</label>
+                <select @bind="_installerType">
+                    <option value="Exe">EXE</option>
+                    <option value="Msi">MSI (msiexec)</option>
+                    <option value="Bat">Batch (cmd)</option>
+                    <option value="PowerShell">PowerShell</option>
+                </select>
+            </div>
+        </div>
+        <div class="field-row">
+            <div class="field">
+                <label>Auszuführende Datei</label>
+                <input type="text" @bind="_commandFile" placeholder="setup.exe / paket.msi / install.bat" />
+            </div>
+            <div class="field">
+                <label>Argumente</label>
+                <input type="text" @bind="_arguments" placeholder="/qn /norestart" />
+            </div>
+        </div>
+        <div class="field-row">
+            <div class="field">
+                <label>Erfolgs-Exitcodes</label>
+                <input type="text" @bind="_successExitCodes" placeholder="0,3010" />
+            </div>
+            <div class="field">
+                <label>Nutzdaten</label>
+                <InputFile OnChange="OnFileSelected" />
+                @if (_selectedFile is not null)
+                {
+                    <span class="muted mono">@_selectedFile.Name (@FormatSize(_selectedFile.Size))</span>
+                }
+            </div>
+        </div>
+        <div class="field">
+            <div class="checkbox">
+                <input type="checkbox" id="archive" @bind="_payloadIsArchive" />
+                <label for="archive" style="margin:0;">Nutzdaten ist ein ZIP-Archiv (vor Ausführung entpacken)</label>
+            </div>
+            <div class="checkbox">
+                <input type="checkbox" id="makeCurrent" @bind="_makeCurrent" />
+                <label for="makeCurrent" style="margin:0;">Als aktuelle Version setzen (wird verteilt)</label>
+            </div>
+        </div>
+
+        @if (_uploadError is not null)
+        {
+            <div class="alert alert-danger">@_uploadError</div>
+        }
+        @if (_uploadOk)
+        {
+            <div class="alert alert-success">Version gespeichert.</div>
+        }
+        <button class="btn btn-primary" disabled="@_uploading" @onclick="Upload">
+            @(_uploading ? "Wird hochgeladen…" : "Version speichern")
+        </button>
+    </div>
+
+    <!-- ---- versions ---- -->
+    <div class="card">
+        <h2>Versionen (@_versions.Count)</h2>
+        @if (_versions.Count == 0)
+        {
+            <div class="table-empty">Noch keine Version hochgeladen.</div>
+        }
+        else
+        {
+            <table>
+                <thead>
+                    <tr><th>Version</th><th>Typ</th><th>Datei</th><th>Größe</th><th>SHA-256</th><th>Aktuell</th><th></th></tr>
+                </thead>
+                <tbody>
+                    @foreach (var v in _versions)
+                    {
+                        <tr>
+                            <td class="mono"><strong>@v.Version</strong></td>
+                            <td>@v.InstallerType</td>
+                            <td class="mono">@v.CommandFileName</td>
+                            <td class="mono">@FormatSize(v.PayloadSize)</td>
+                            <td class="mono" title="@v.PayloadSha256">@Short(v.PayloadSha256)</td>
+                            <td>@(v.IsCurrent ? StatusBadge.RenderEnabled() : "")</td>
+                            <td class="actions">
+                                @if (!v.IsCurrent)
+                                {
+                                    <button class="btn btn-sm" @onclick="() => SetCurrent(v.Id)">Aktiv setzen</button>
+                                }
+                                <button class="btn btn-danger btn-sm" @onclick="() => DeleteVersion(v.Id)">Löschen</button>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        }
+    </div>
+
+    <!-- ---- assignments ---- -->
+    <div class="card">
+        <h2>Zuweisungen (@_assignments.Count)</h2>
+        @if (!Ad.IsAvailable)
+        {
+            <div class="alert alert-warning">
+                Active Directory nicht erreichbar – Zuweisungsziele können nicht gesucht werden.
+                Der Server muss domänengebunden unter dem Servicekonto laufen.
+            </div>
+        }
+        else
+        {
+            <div class="field-row">
+                <div class="field" style="max-width:180px;">
+                    <label>Zieltyp</label>
+                    <select @bind="_assignType">
+                        <option value="Computer">Computerkonto</option>
+                        <option value="Group">Gruppe</option>
+                        <option value="User">Benutzer</option>
+                    </select>
+                </div>
+                <div class="field">
+                    <label>Suche</label>
+                    <input type="text" @bind="_searchTerm" @bind:event="oninput" placeholder="Name / Teilname…" />
+                </div>
+                <div class="field" style="max-width:120px; display:flex; align-items:flex-end;">
+                    <button class="btn" @onclick="SearchAd">Suchen</button>
+                </div>
+            </div>
+
+            @if (_searchResults.Count > 0)
+            {
+                <table>
+                    <thead><tr><th>Name</th><th>Konto</th><th>SID</th><th></th></tr></thead>
+                    <tbody>
+                        @foreach (var p in _searchResults)
+                        {
+                            <tr>
+                                <td>@p.DisplayName</td>
+                                <td class="mono">@p.SamAccountName</td>
+                                <td class="mono">@Short(p.Sid)</td>
+                                <td><button class="btn btn-sm btn-primary" @onclick="() => AddAssignment(p)">Zuweisen</button></td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            }
+        }
+
+        <h2 style="margin-top:1.25rem;">Aktuelle Zuweisungen</h2>
+        @if (_assignments.Count == 0)
+        {
+            <div class="table-empty">Noch keinem Ziel zugewiesen.</div>
+        }
+        else
+        {
+            <table>
+                <thead><tr><th>Typ</th><th>Ziel</th><th>SID</th><th></th></tr></thead>
+                <tbody>
+                    @foreach (var a in _assignments)
+                    {
+                        <tr>
+                            <td>@TargetLabel(a.TargetType)</td>
+                            <td><strong>@a.TargetName</strong></td>
+                            <td class="mono">@Short(a.TargetSid)</td>
+                            <td><button class="btn btn-danger btn-sm" @onclick="() => RemoveAssignment(a.Id)">Entfernen</button></td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        }
+    </div>
+}
+
+@code {
+    [Parameter] public int Id { get; set; }
+
+    private PackageEntity? _package;
+    private List<PackageVersionEntity> _versions = new();
+    private List<AssignmentEntity> _assignments = new();
+
+    // upload form
+    private string _version = "";
+    private string _installerType = "Exe";
+    private string _commandFile = "";
+    private string _arguments = "";
+    private string _successExitCodes = "0,3010";
+    private bool _payloadIsArchive;
+    private bool _makeCurrent = true;
+    private IBrowserFile? _selectedFile;
+    private bool _uploading;
+    private string? _uploadError;
+    private bool _uploadOk;
+
+    // assignment form
+    private string _assignType = "Computer";
+    private string _searchTerm = "";
+    private List<DirectoryPrincipal> _searchResults = new();
+
+    protected override async Task OnParametersSetAsync() => await LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        _package = await db.Packages.FirstOrDefaultAsync(p => p.Id == Id);
+        if (_package is null) return;
+
+        _versions = await db.PackageVersions
+            .Where(v => v.PackageId == Id)
+            .OrderByDescending(v => v.CreatedAtUtc)
+            .ToListAsync();
+
+        _assignments = await db.Assignments
+            .Where(a => a.PackageId == Id)
+            .OrderBy(a => a.TargetType).ThenBy(a => a.TargetName)
+            .ToListAsync();
+    }
+
+    private async Task ToggleEnabled(ChangeEventArgs e)
+    {
+        bool enabled = (bool)(e.Value ?? false);
+        await using var db = await DbFactory.CreateDbContextAsync();
+        var p = await db.Packages.FindAsync(Id);
+        if (p is not null) { p.IsEnabled = enabled; await db.SaveChangesAsync(); }
+        await LoadAsync();
+    }
+
+    private void OnFileSelected(InputFileChangeEventArgs e) => _selectedFile = e.File;
+
+    private async Task Upload()
+    {
+        _uploadError = null;
+        _uploadOk = false;
+
+        string version = _version.Trim();
+        if (string.IsNullOrEmpty(version)) { _uploadError = "Bitte eine Version angeben."; return; }
+        if (string.IsNullOrWhiteSpace(_commandFile)) { _uploadError = "Bitte die auszuführende Datei angeben."; return; }
+        if (_selectedFile is null) { _uploadError = "Bitte eine Nutzdaten-Datei auswählen."; return; }
+
+        _uploading = true;
+        try
+        {
+            await using var checkDb = await DbFactory.CreateDbContextAsync();
+            if (await checkDb.PackageVersions.AnyAsync(v => v.PackageId == Id && v.Version == version))
+            {
+                _uploadError = "Diese Version existiert bereits.";
+                return;
+            }
+
+            long maxBytes = Options.Value.MaxUploadMegabytes * 1024 * 1024;
+            StoredPayload stored;
+            await using (var stream = _selectedFile.OpenReadStream(maxBytes))
+            {
+                stored = await Storage.SaveAsync(stream);
+            }
+
+            await using var db = await DbFactory.CreateDbContextAsync();
+            if (_makeCurrent)
+            {
+                await db.PackageVersions
+                    .Where(v => v.PackageId == Id && v.IsCurrent)
+                    .ExecuteUpdateAsync(s => s.SetProperty(v => v.IsCurrent, false));
+            }
+
+            db.PackageVersions.Add(new PackageVersionEntity
+            {
+                PackageId = Id,
+                Version = version,
+                InstallerType = Enum.Parse<InstallerType>(_installerType),
+                CommandFileName = _commandFile.Trim(),
+                Arguments = _arguments?.Trim() ?? "",
+                SuccessExitCodes = string.IsNullOrWhiteSpace(_successExitCodes) ? "0,3010" : _successExitCodes.Trim(),
+                PayloadIsArchive = _payloadIsArchive,
+                PayloadFileName = _selectedFile.Name,
+                PayloadStoredName = stored.StoredName,
+                PayloadSha256 = stored.Sha256,
+                PayloadSize = stored.Size,
+                IsCurrent = _makeCurrent,
+                CreatedAtUtc = DateTimeOffset.UtcNow,
+            });
+            await db.SaveChangesAsync();
+
+            _uploadOk = true;
+            _version = _commandFile = _arguments = "";
+            _successExitCodes = "0,3010";
+            _selectedFile = null;
+            _payloadIsArchive = false;
+            await LoadAsync();
+        }
+        catch (Exception ex)
+        {
+            _uploadError = "Upload fehlgeschlagen: " + ex.Message;
+        }
+        finally
+        {
+            _uploading = false;
+        }
+    }
+
+    private async Task SetCurrent(int versionId)
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        await db.PackageVersions
+            .Where(v => v.PackageId == Id && v.IsCurrent)
+            .ExecuteUpdateAsync(s => s.SetProperty(v => v.IsCurrent, false));
+        await db.PackageVersions
+            .Where(v => v.Id == versionId)
+            .ExecuteUpdateAsync(s => s.SetProperty(v => v.IsCurrent, true));
+        await LoadAsync();
+    }
+
+    private async Task DeleteVersion(int versionId)
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        var v = await db.PackageVersions.FindAsync(versionId);
+        if (v is not null)
+        {
+            Storage.Delete(v.PayloadStoredName);
+            db.PackageVersions.Remove(v);
+            await db.SaveChangesAsync();
+        }
+        await LoadAsync();
+    }
+
+    private async Task DeletePackage()
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        var versions = await db.PackageVersions.Where(v => v.PackageId == Id).ToListAsync();
+        foreach (var v in versions) Storage.Delete(v.PayloadStoredName);
+        var p = await db.Packages.FindAsync(Id);
+        if (p is not null) { db.Packages.Remove(p); await db.SaveChangesAsync(); }
+        Nav.NavigateTo("/packages");
+    }
+
+    private void SearchAd()
+    {
+        var type = Enum.Parse<AssignmentTargetType>(_assignType);
+        _searchResults = Ad.Search(type, _searchTerm, 50).ToList();
+    }
+
+    private async Task AddAssignment(DirectoryPrincipal p)
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        if (!await db.Assignments.AnyAsync(a => a.PackageId == Id && a.TargetSid == p.Sid))
+        {
+            db.Assignments.Add(new AssignmentEntity
+            {
+                PackageId = Id,
+                TargetType = p.Kind,
+                TargetSid = p.Sid,
+                TargetName = p.DisplayName,
+                CreatedAtUtc = DateTimeOffset.UtcNow,
+            });
+            await db.SaveChangesAsync();
+        }
+        await LoadAsync();
+    }
+
+    private async Task RemoveAssignment(int assignmentId)
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        var a = await db.Assignments.FindAsync(assignmentId);
+        if (a is not null) { db.Assignments.Remove(a); await db.SaveChangesAsync(); }
+        await LoadAsync();
+    }
+
+    private static string TargetLabel(AssignmentTargetType t) => t switch
+    {
+        AssignmentTargetType.Computer => "Computer",
+        AssignmentTargetType.Group => "Gruppe",
+        AssignmentTargetType.User => "Benutzer",
+        _ => t.ToString(),
+    };
+
+    private static string Short(string? s)
+        => string.IsNullOrEmpty(s) ? "" : (s.Length <= 20 ? s : s[..17] + "…");
+
+    private static string FormatSize(long bytes)
+    {
+        string[] units = ["B", "KB", "MB", "GB"];
+        double size = bytes; int u = 0;
+        while (size >= 1024 && u < units.Length - 1) { size /= 1024; u++; }
+        return $"{size:0.#} {units[u]}";
+    }
+}

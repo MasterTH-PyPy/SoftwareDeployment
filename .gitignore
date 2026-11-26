@@ -1,0 +1,52 @@
+# ---- .NET ----
+bin/
+obj/
+out/
+[Dd]ebug/
+[Rr]elease/
+x64/
+x86/
+[Aa][Rr][Mm]/
+[Aa][Rr][MM]64/
+*.user
+*.suo
+*.userprefs
+*.cache
+*.dll
+*.pdb
+*.exe
+!installers/**/*.exe
+
+# ---- Visual Studio / Rider ----
+.vs/
+.idea/
+*.DotSettings.user
+
+# ---- Publish / build output ----
+publish/
+staging/
+artifacts/
+*.nupkg
+*.snupkg
+
+# ---- Inno Setup output ----
+installers/**/Output/
+*.iss.bak
+
+# ---- Runtime / local data (must never be committed) ----
+# SQLite database and uploaded package payloads live in the data dir at runtime
+data/
+*.db
+*.db-shm
+*.db-wal
+# Bootstrap secrets written by the server console
+server-secrets.json
+appsettings.*.Local.json
+
+# ---- Logs ----
+logs/
+*.log
+
+# ---- OS noise ----
+.DS_Store
+Thumbs.db

@@ -1,0 +1,65 @@
+@page "/logs"
+@inject IDbContextFactory<DeploymentDbContext> DbFactory
+
+<h1>Protokoll</h1>
+
+<div class="card">
+    <h2>Installationsmeldungen (letzte 200)</h2>
+    @if (_rows.Count == 0)
+    {
+        <div class="table-empty">Noch keine Meldungen.</div>
+    }
+    else
+    {
+        <table>
+            <thead>
+                <tr><th>Zeitpunkt</th><th>Client</th><th>Paket</th><th>Version</th><th>Status</th><th>Exitcode</th><th>Meldung</th></tr>
+            </thead>
+            <tbody>
+                @foreach (var l in _rows)
+                {
+                    <tr>
+                        <td class="mono">@l.ReportedAtUtc.LocalDateTime.ToString("dd.MM.yy HH:mm:ss")</td>
+                        <td>@l.Machine</td>
+                        <td>@l.PackageName</td>
+                        <td class="mono">@l.Version</td>
+                        <td>@StatusBadge.Render(l.Status)</td>
+                        <td class="mono">@(l.ExitCode?.ToString() ?? "—")</td>
+                        <td class="muted" style="max-width:360px;">@Truncate(l.Message)</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    }
+</div>
+
+@code {
+    private List<Row> _rows = new();
+
+    private sealed record Row(DateTimeOffset ReportedAtUtc, string Machine, string PackageName,
+                              string Version, InstallResultStatus Status, int? ExitCode, string? Message);
+
+    protected override async Task OnInitializedAsync()
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        var logs = await db.InstallLogs
+            .OrderByDescending(l => l.ReportedAtUtc)
+            .Take(200)
+            .ToListAsync();
+
+        var ids = logs.Select(l => l.ClientId).Distinct().ToList();
+        var names = await db.Clients
+            .Where(c => ids.Contains(c.Id))
+            .ToDictionaryAsync(c => c.Id, c => c.MachineName);
+
+        _rows = logs
+            .Select(l => new Row(
+                l.ReportedAtUtc,
+                names.GetValueOrDefault(l.ClientId, "?"),
+                l.PackageName, l.Version, l.Status, l.ExitCode, l.Message))
+            .ToList();
+    }
+
+    private static string Truncate(string? s)
+        => string.IsNullOrEmpty(s) ? "" : (s.Length <= 200 ? s : s[..200] + "…");
+}

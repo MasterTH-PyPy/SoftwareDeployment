@@ -1,0 +1,115 @@
+@page "/clients"
+@rendermode InteractiveServer
+@inject IDbContextFactory<DeploymentDbContext> DbFactory
+
+<h1>Clients</h1>
+
+@if (_pending.Count > 0)
+{
+    <div class="card">
+        <h2>Freigabe ausstehend (@_pending.Count)</h2>
+        <table>
+            <thead>
+                <tr><th>Computer</th><th>Domäne</th><th>Betriebssystem</th><th>Agent</th><th>Registriert</th><th></th></tr>
+            </thead>
+            <tbody>
+                @foreach (var c in _pending)
+                {
+                    <tr>
+                        <td><strong>@c.MachineName</strong></td>
+                        <td>@c.Domain</td>
+                        <td class="muted">@c.OsVersion</td>
+                        <td class="mono">@c.AgentVersion</td>
+                        <td class="mono">@c.RegisteredAtUtc.LocalDateTime.ToString("dd.MM.yy HH:mm")</td>
+                        <td class="actions">
+                            <button class="btn btn-success btn-sm" @onclick="() => SetStatus(c.Id, ClientApprovalStatus.Approved)">Freigeben</button>
+                            <button class="btn btn-danger btn-sm" @onclick="() => SetStatus(c.Id, ClientApprovalStatus.Rejected)">Ablehnen</button>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+}
+
+<div class="card">
+    <h2>Registrierte Clients (@_all.Count)</h2>
+    @if (_all.Count == 0)
+    {
+        <div class="table-empty">Noch keine Clients registriert.</div>
+    }
+    else
+    {
+        <table>
+            <thead>
+                <tr><th>Computer</th><th>Status</th><th>Angemeldeter Benutzer</th><th>Zuletzt gesehen</th><th>Agent</th><th></th></tr>
+            </thead>
+            <tbody>
+                @foreach (var c in _all)
+                {
+                    <tr>
+                        <td><strong>@c.MachineName</strong><br /><span class="muted mono">@c.Domain</span></td>
+                        <td>@StatusBadge.Render(c.Status)</td>
+                        <td>@(string.IsNullOrEmpty(c.LastKnownUser) ? "—" : c.LastKnownUser)</td>
+                        <td class="mono">@LastSeen(c.LastSeenUtc)</td>
+                        <td class="mono">@c.AgentVersion</td>
+                        <td class="actions">
+                            @if (c.Status != ClientApprovalStatus.Approved)
+                            {
+                                <button class="btn btn-success btn-sm" @onclick="() => SetStatus(c.Id, ClientApprovalStatus.Approved)">Freigeben</button>
+                            }
+                            else
+                            {
+                                <button class="btn btn-sm" @onclick="() => SetStatus(c.Id, ClientApprovalStatus.Rejected)">Sperren</button>
+                            }
+                            <button class="btn btn-danger btn-sm" @onclick="() => Delete(c.Id)">Entfernen</button>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    }
+</div>
+
+@code {
+    private List<ClientEntity> _all = new();
+    private List<ClientEntity> _pending = new();
+
+    protected override async Task OnInitializedAsync() => await LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        _all = await db.Clients.OrderBy(c => c.MachineName).ToListAsync();
+        _pending = _all.Where(c => c.Status == ClientApprovalStatus.Pending).ToList();
+    }
+
+    private async Task SetStatus(Guid id, ClientApprovalStatus status)
+    {
+        await using (var db = await DbFactory.CreateDbContextAsync())
+        {
+            var c = await db.Clients.FindAsync(id);
+            if (c is not null) { c.Status = status; await db.SaveChangesAsync(); }
+        }
+        await LoadAsync();
+    }
+
+    private async Task Delete(Guid id)
+    {
+        await using (var db = await DbFactory.CreateDbContextAsync())
+        {
+            var c = await db.Clients.FindAsync(id);
+            if (c is not null) { db.Clients.Remove(c); await db.SaveChangesAsync(); }
+        }
+        await LoadAsync();
+    }
+
+    private static string LastSeen(DateTimeOffset ts)
+    {
+        var age = DateTimeOffset.UtcNow - ts;
+        if (age < TimeSpan.FromMinutes(10)) return "gerade eben";
+        if (age < TimeSpan.FromHours(1)) return $"vor {(int)age.TotalMinutes} min";
+        if (age < TimeSpan.FromDays(1)) return $"vor {(int)age.TotalHours} h";
+        return ts.LocalDateTime.ToString("dd.MM.yy HH:mm");
+    }
+}

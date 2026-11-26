@@ -1,0 +1,110 @@
+@page "/packages"
+@rendermode InteractiveServer
+@inject IDbContextFactory<DeploymentDbContext> DbFactory
+@inject NavigationManager Nav
+
+<div class="page-head">
+    <h1>Pakete</h1>
+</div>
+
+<div class="card">
+    <h2>Neues Paket</h2>
+    <div class="field-row">
+        <div class="field">
+            <label>Name</label>
+            <input type="text" @bind="_newName" placeholder="z. B. 7-Zip" />
+        </div>
+        <div class="field">
+            <label>Beschreibung (optional)</label>
+            <input type="text" @bind="_newDescription" />
+        </div>
+    </div>
+    @if (_error is not null)
+    {
+        <div class="alert alert-danger">@_error</div>
+    }
+    <button class="btn btn-primary" @onclick="Create">Paket anlegen</button>
+</div>
+
+<div class="card">
+    <h2>Vorhandene Pakete (@_rows.Count)</h2>
+    @if (_rows.Count == 0)
+    {
+        <div class="table-empty">Noch keine Pakete angelegt.</div>
+    }
+    else
+    {
+        <table>
+            <thead>
+                <tr><th>Name</th><th>Aktuelle Version</th><th>Versionen</th><th>Zuweisungen</th><th>Status</th><th></th></tr>
+            </thead>
+            <tbody>
+                @foreach (var r in _rows)
+                {
+                    <tr>
+                        <td><strong>@r.Name</strong><br /><span class="muted">@r.Description</span></td>
+                        <td class="mono">@(r.CurrentVersion ?? "—")</td>
+                        <td>@r.VersionCount</td>
+                        <td>@r.AssignmentCount</td>
+                        <td>@(r.IsEnabled ? StatusBadge.RenderEnabled() : StatusBadge.RenderDisabled())</td>
+                        <td><a class="btn btn-sm" href="@($"/packages/{r.Id}")">Öffnen</a></td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    }
+</div>
+
+@code {
+    private string _newName = "";
+    private string _newDescription = "";
+    private string? _error;
+    private List<Row> _rows = new();
+
+    private sealed record Row(int Id, string Name, string? Description, string? CurrentVersion,
+                              int VersionCount, int AssignmentCount, bool IsEnabled);
+
+    protected override async Task OnInitializedAsync() => await LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        _rows = await db.Packages
+            .OrderBy(p => p.Name)
+            .Select(p => new Row(
+                p.Id,
+                p.Name,
+                p.Description,
+                p.Versions.Where(v => v.IsCurrent).Select(v => v.Version).FirstOrDefault(),
+                p.Versions.Count,
+                p.Assignments.Count,
+                p.IsEnabled))
+            .ToListAsync();
+    }
+
+    private async Task Create()
+    {
+        _error = null;
+        string name = _newName.Trim();
+        if (string.IsNullOrEmpty(name)) { _error = "Bitte einen Namen angeben."; return; }
+
+        await using (var db = await DbFactory.CreateDbContextAsync())
+        {
+            if (await db.Packages.AnyAsync(p => p.Name == name))
+            {
+                _error = "Ein Paket mit diesem Namen existiert bereits.";
+                return;
+            }
+            db.Packages.Add(new PackageEntity
+            {
+                Name = name,
+                Description = string.IsNullOrWhiteSpace(_newDescription) ? null : _newDescription.Trim(),
+                CreatedAtUtc = DateTimeOffset.UtcNow,
+                IsEnabled = true,
+            });
+            await db.SaveChangesAsync();
+        }
+        _newName = _newDescription = "";
+        await LoadAsync();
+    }
+}

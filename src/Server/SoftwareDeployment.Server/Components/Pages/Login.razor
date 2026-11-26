@@ -1,0 +1,57 @@
+@page "/account/login"
+@layout SoftwareDeployment.Server.Components.Layout.EmptyLayout
+@inject SettingsService Settings
+
+<div class="auth-card">
+    <div class="auth-brand">
+        <img src="/img/logo.svg" alt="SonOG" />
+        <div class="title">SonOG Software Deployment</div>
+    </div>
+
+    @if (!_hasPassword)
+    {
+        <div class="alert alert-info">
+            Erstanmeldung: Bitte ein Administrator-Kennwort festlegen (mindestens 10 Zeichen).
+        </div>
+        @if (Error == "2")
+        {
+            <div class="alert alert-danger">Die Kennwörter stimmen nicht überein oder sind zu kurz.</div>
+        }
+        <form method="post" action="/account/set-initial-password">
+            <div class="field">
+                <label for="password">Neues Kennwort</label>
+                <input type="password" id="password" name="password" autocomplete="new-password" required />
+            </div>
+            <div class="field">
+                <label for="confirm">Kennwort bestätigen</label>
+                <input type="password" id="confirm" name="confirm" autocomplete="new-password" required />
+            </div>
+            <button type="submit" class="btn btn-primary" style="width:100%;">Kennwort setzen & anmelden</button>
+        </form>
+    }
+    else
+    {
+        @if (Error == "1")
+        {
+            <div class="alert alert-danger">Kennwort falsch.</div>
+        }
+        <form method="post" action="/account/login">
+            <input type="hidden" name="returnUrl" value="@(ReturnUrl ?? "/")" />
+            <div class="field">
+                <label for="password">Administrator-Kennwort</label>
+                <input type="password" id="password" name="password" autocomplete="current-password" required autofocus />
+            </div>
+            <button type="submit" class="btn btn-primary" style="width:100%;">Anmelden</button>
+        </form>
+    }
+</div>
+
+@code {
+    [SupplyParameterFromQuery] public string? Error { get; set; }
+    [SupplyParameterFromQuery] public string? ReturnUrl { get; set; }
+
+    private bool _hasPassword;
+
+    protected override async Task OnInitializedAsync()
+        => _hasPassword = await Settings.HasAdminPasswordAsync();
+}
