@@ -31,7 +31,9 @@ public static class PackageInspector
     {
         InstallerType.Msi => "/qn /norestart",
         InstallerType.Exe => "/S",
-        InstallerType.PowerShell => "-ExecutionPolicy Bypass -NoProfile",
+        // PowerShell: the client runner adds -ExecutionPolicy Bypass -NoProfile -File
+        // itself, so these are extra script parameters (usually none).
+        InstallerType.PowerShell => "",
         _ => "",
     };
 
