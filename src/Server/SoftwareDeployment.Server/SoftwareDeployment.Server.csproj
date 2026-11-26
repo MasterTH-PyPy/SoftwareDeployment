@@ -22,4 +22,18 @@
     <ProjectReference Include="..\..\Shared\SoftwareDeployment.Shared\SoftwareDeployment.Shared.csproj" />
   </ItemGroup>
 
+  <!--
+    NU1903 (GHSA-2m69-gcr7-jv3q): SQLitePCLRaw.lib.e_sqlite3 2.1.11 (transitiv über
+    Microsoft.EntityFrameworkCore.Sqlite). Es gibt KEINE gepatchte NuGet-Version
+    (Advisory: "Patched versions: None"); der Fix liegt in SQLite >= 3.50.2, das
+    SQLitePCLRaw noch nicht ausliefert. Die Lücke betrifft das Verarbeiten
+    manipulierter SQL/DB-Eingaben – hier öffnet der Server nur seine eigene DB und
+    baut sein SQL selbst über EF, daher praktisch keine Angriffsfläche.
+    Diese gezielte Unterdrückung wieder entfernen, sobald ein Bundle mit
+    SQLite >= 3.50.2 verfügbar ist (dann auf die neue Version pinnen/aktualisieren).
+  -->
+  <ItemGroup>
+    <NuGetAuditSuppress Include="https://github.com/advisories/GHSA-2m69-gcr7-jv3q" />
+  </ItemGroup>
+
 </Project>
