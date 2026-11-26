@@ -17,8 +17,8 @@ public sealed class ClientEntity
 
     public ClientApprovalStatus Status { get; set; } = ClientApprovalStatus.Pending;
 
-    public DateTimeOffset RegisteredAtUtc { get; set; }
-    public DateTimeOffset LastSeenUtc { get; set; }
+    public DateTime RegisteredAtUtc { get; set; }
+    public DateTime LastSeenUtc { get; set; } // UTC; DateTime for reliable SQLite translation
 
     /// <summary>SAM account name of the user seen on the most recent poll.</summary>
     public string? LastKnownUser { get; set; }
@@ -34,7 +34,7 @@ public sealed class PackageEntity
     public string Name { get; set; } = string.Empty;
     public string? Description { get; set; }
     public bool IsEnabled { get; set; } = true;
-    public DateTimeOffset CreatedAtUtc { get; set; }
+    public DateTime CreatedAtUtc { get; set; }
 
     public ICollection<PackageVersionEntity> Versions { get; set; } = new List<PackageVersionEntity>();
     public ICollection<AssignmentEntity> Assignments { get; set; } = new List<AssignmentEntity>();
@@ -67,7 +67,7 @@ public sealed class PackageVersionEntity
     /// <summary>Exactly one version per package is the one currently rolled out.</summary>
     public bool IsCurrent { get; set; }
 
-    public DateTimeOffset CreatedAtUtc { get; set; }
+    public DateTime CreatedAtUtc { get; set; }
 }
 
 /// <summary>Links a package to an AD principal (computer / group / user) by SID.</summary>
@@ -85,7 +85,7 @@ public sealed class AssignmentEntity
     /// <summary>Display name captured at assignment time (for the admin UI).</summary>
     public string TargetName { get; set; } = string.Empty;
 
-    public DateTimeOffset CreatedAtUtc { get; set; }
+    public DateTime CreatedAtUtc { get; set; }
 }
 
 /// <summary>Current installed state of one package on one client (for the overview).</summary>
@@ -98,7 +98,7 @@ public sealed class ClientPackageStateEntity
     public int PackageId { get; set; }
     public string InstalledVersion { get; set; } = string.Empty;
     public InstallResultStatus Status { get; set; }
-    public DateTimeOffset UpdatedAtUtc { get; set; }
+    public DateTime UpdatedAtUtc { get; set; }
 }
 
 /// <summary>Historical log line for one install attempt.</summary>
@@ -116,9 +116,9 @@ public sealed class InstallLogEntity
     public int? ExitCode { get; set; }
     public string? Message { get; set; }
 
-    public DateTimeOffset StartedAtUtc { get; set; }
-    public DateTimeOffset FinishedAtUtc { get; set; }
-    public DateTimeOffset ReportedAtUtc { get; set; }
+    public DateTime StartedAtUtc { get; set; }
+    public DateTime FinishedAtUtc { get; set; }
+    public DateTime ReportedAtUtc { get; set; }
 }
 
 /// <summary>Single-row table holding global server configuration.</summary>

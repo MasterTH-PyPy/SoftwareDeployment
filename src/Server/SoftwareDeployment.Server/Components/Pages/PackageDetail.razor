@@ -315,7 +315,7 @@ else
                 PayloadSha256 = stored.Sha256,
                 PayloadSize = stored.Size,
                 IsCurrent = _makeCurrent,
-                CreatedAtUtc = DateTimeOffset.UtcNow,
+                CreatedAtUtc = DateTime.UtcNow,
             });
             await db.SaveChangesAsync();
 
@@ -388,7 +388,7 @@ else
                 TargetType = p.Kind,
                 TargetSid = p.Sid,
                 TargetName = p.DisplayName,
-                CreatedAtUtc = DateTimeOffset.UtcNow,
+                CreatedAtUtc = DateTime.UtcNow,
             });
             await db.SaveChangesAsync();
         }

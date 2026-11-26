@@ -47,7 +47,7 @@
                 @foreach (var l in _recent)
                 {
                     <tr>
-                        <td class="mono">@l.ReportedAtUtc.LocalDateTime.ToString("dd.MM. HH:mm")</td>
+                        <td class="mono">@Fmt.Local(l.ReportedAtUtc, "dd.MM. HH:mm")</td>
                         <td>@l.Machine</td>
                         <td>@l.PackageName</td>
                         <td class="mono">@l.Version</td>
@@ -63,7 +63,7 @@
     private int _clientsTotal, _clientsPending, _packages, _failures24h;
     private List<Row> _recent = new();
 
-    private sealed record Row(DateTimeOffset ReportedAtUtc, string Machine, string PackageName, string Version, InstallResultStatus Status);
+    private sealed record Row(DateTime ReportedAtUtc, string Machine, string PackageName, string Version, InstallResultStatus Status);
 
     protected override async Task OnInitializedAsync()
     {
@@ -73,7 +73,7 @@
         _clientsPending = await db.Clients.CountAsync(c => c.Status == ClientApprovalStatus.Pending);
         _packages = await db.Packages.CountAsync();
 
-        DateTimeOffset since = DateTimeOffset.UtcNow.AddHours(-24);
+        DateTime since = DateTime.UtcNow.AddHours(-24);
         _failures24h = await db.InstallLogs
             .CountAsync(l => l.ReportedAtUtc >= since && l.Status == InstallResultStatus.Failed);
 

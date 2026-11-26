@@ -62,7 +62,7 @@ public static class ClientApiEndpoints
             client.ApiKeyHash = apiKeyHash;
             client.OsVersion = req.OsVersion ?? string.Empty;
             client.AgentVersion = req.AgentVersion ?? string.Empty;
-            client.LastSeenUtc = DateTimeOffset.UtcNow;
+            client.LastSeenUtc = DateTime.UtcNow;
             if (client.Status == ClientApprovalStatus.Rejected)
                 client.Status = ClientApprovalStatus.Pending;
         }
@@ -79,8 +79,8 @@ public static class ClientApiEndpoints
                 Status = cfg.AutoApproveClients
                     ? ClientApprovalStatus.Approved
                     : ClientApprovalStatus.Pending,
-                RegisteredAtUtc = DateTimeOffset.UtcNow,
-                LastSeenUtc = DateTimeOffset.UtcNow,
+                RegisteredAtUtc = DateTime.UtcNow,
+                LastSeenUtc = DateTime.UtcNow,
             };
             db.Clients.Add(client);
         }
@@ -122,7 +122,7 @@ public static class ClientApiEndpoints
         (ClientEntity? client, IResult? failure) = await AuthenticateAsync(http, db, ct);
         if (failure is not null) return failure;
 
-        DateTimeOffset now = DateTimeOffset.UtcNow;
+        DateTime now = DateTime.UtcNow;
 
         foreach (InstallResultDto r in req.Results)
         {
@@ -145,8 +145,8 @@ public static class ClientApiEndpoints
                 Status = r.Status,
                 ExitCode = r.ExitCode,
                 Message = message,
-                StartedAtUtc = r.StartedAtUtc,
-                FinishedAtUtc = r.FinishedAtUtc,
+                StartedAtUtc = r.StartedAtUtc.UtcDateTime,
+                FinishedAtUtc = r.FinishedAtUtc.UtcDateTime,
                 ReportedAtUtc = now,
             });
 

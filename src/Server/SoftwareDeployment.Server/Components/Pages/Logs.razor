@@ -19,7 +19,7 @@
                 @foreach (var l in _rows)
                 {
                     <tr>
-                        <td class="mono">@l.ReportedAtUtc.LocalDateTime.ToString("dd.MM.yy HH:mm:ss")</td>
+                        <td class="mono">@Fmt.Local(l.ReportedAtUtc, "dd.MM.yy HH:mm:ss")</td>
                         <td>@l.Machine</td>
                         <td>@l.PackageName</td>
                         <td class="mono">@l.Version</td>
@@ -36,7 +36,7 @@
 @code {
     private List<Row> _rows = new();
 
-    private sealed record Row(DateTimeOffset ReportedAtUtc, string Machine, string PackageName,
+    private sealed record Row(DateTime ReportedAtUtc, string Machine, string PackageName,
                               string Version, InstallResultStatus Status, int? ExitCode, string? Message);
 
     protected override async Task OnInitializedAsync()

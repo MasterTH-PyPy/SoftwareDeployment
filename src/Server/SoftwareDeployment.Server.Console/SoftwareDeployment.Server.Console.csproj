@@ -14,7 +14,8 @@
 
   <ItemGroup>
     <PackageReference Include="System.ServiceProcess.ServiceController" Version="10.0.0" />
-    <PackageReference Include="System.DirectoryServices" Version="10.0.0" />
+    <!-- System.DirectoryServices is provided by the Windows Desktop framework
+         for net*-windows targets (NU1510), so no explicit package reference. -->
   </ItemGroup>
 
   <ItemGroup>

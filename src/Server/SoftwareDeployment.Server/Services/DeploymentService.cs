@@ -30,7 +30,7 @@ public sealed class DeploymentService(
         };
 
         // Refresh the "last seen" fields on every contact.
-        client.LastSeenUtc = DateTimeOffset.UtcNow;
+        client.LastSeenUtc = DateTime.UtcNow;
         client.LastKnownUser = req.CurrentUser;
         if (!string.IsNullOrWhiteSpace(req.AgentVersion))
             client.AgentVersion = req.AgentVersion;

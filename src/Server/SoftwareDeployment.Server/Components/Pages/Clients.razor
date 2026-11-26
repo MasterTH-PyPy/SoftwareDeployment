@@ -20,7 +20,7 @@
                         <td>@c.Domain</td>
                         <td class="muted">@c.OsVersion</td>
                         <td class="mono">@c.AgentVersion</td>
-                        <td class="mono">@c.RegisteredAtUtc.LocalDateTime.ToString("dd.MM.yy HH:mm")</td>
+                        <td class="mono">@Fmt.Local(c.RegisteredAtUtc, "dd.MM.yy HH:mm")</td>
                         <td class="actions">
                             <button class="btn btn-success btn-sm" @onclick="() => SetStatus(c.Id, ClientApprovalStatus.Approved)">Freigeben</button>
                             <button class="btn btn-danger btn-sm" @onclick="() => SetStatus(c.Id, ClientApprovalStatus.Rejected)">Ablehnen</button>
@@ -104,12 +104,12 @@
         await LoadAsync();
     }
 
-    private static string LastSeen(DateTimeOffset ts)
+    private static string LastSeen(DateTime tsUtc)
     {
-        var age = DateTimeOffset.UtcNow - ts;
+        var age = DateTime.UtcNow - tsUtc;
         if (age < TimeSpan.FromMinutes(10)) return "gerade eben";
         if (age < TimeSpan.FromHours(1)) return $"vor {(int)age.TotalMinutes} min";
         if (age < TimeSpan.FromDays(1)) return $"vor {(int)age.TotalHours} h";
-        return ts.LocalDateTime.ToString("dd.MM.yy HH:mm");
+        return Fmt.Local(tsUtc, "dd.MM.yy HH:mm");
     }
 }

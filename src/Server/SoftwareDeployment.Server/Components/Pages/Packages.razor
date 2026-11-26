@@ -99,7 +99,7 @@
             {
                 Name = name,
                 Description = string.IsNullOrWhiteSpace(_newDescription) ? null : _newDescription.Trim(),
-                CreatedAtUtc = DateTimeOffset.UtcNow,
+                CreatedAtUtc = DateTime.UtcNow,
                 IsEnabled = true,
             });
             await db.SaveChangesAsync();
