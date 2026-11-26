@@ -5,12 +5,12 @@ Der Client besteht aus drei Projekten:
 | Projekt | Zielframework | Zweck |
 |---|---|---|
 | `SoftwareDeployment.Client.Core`    | `net10.0-windows` | Gemeinsame Logik: Config/State (DPAPI-geschützter API-Key), HTTPS-API-Client, Install-Runner, Logger. |
-| `SoftwareDeployment.Client.Service` | `net10.0-windows` | Windows-Dienst `SonOGDeploymentAgent`: pollt den Server über HTTPS, lädt fällige Pakete, führt sie aus, meldet zurück. |
+| `SoftwareDeployment.Client.Service` | `net10.0-windows` | Windows-Dienst `SoftwareDeploymentAgent`: pollt den Server über HTTPS, lädt fällige Pakete, führt sie aus, meldet zurück. |
 | `SoftwareDeployment.Client.Gui`     | `net10.0-windows` (WinForms, Designer) | Status, Paketübersicht, Protokoll und Registrierung (Server-URL + Enrollment-Key). |
 
 ## Ablauf
 
-1. GUI starten → Reiter **Konfiguration**: Server-URL (HTTPS) und **Installations-Key** eingeben, **Registrieren**. Der API-Key wird DPAPI-verschlüsselt unter `%ProgramData%\SonOG\DeploymentAgent` abgelegt.
+1. GUI starten → Reiter **Konfiguration**: Server-URL (HTTPS) und **Installations-Key** eingeben, **Registrieren**. Der API-Key wird DPAPI-verschlüsselt unter `%ProgramData%\SoftwareDeployment\Agent` abgelegt.
 2. Admin gibt den Client im Server-Web-Interface frei.
 3. Der Dienst pollt im konfigurierten Intervall, installiert zugewiesene Pakete und meldet Exitcode/Status zurück. GUI zeigt Status, Pakete und Protokoll (Aktualisierung alle 3 s).
 

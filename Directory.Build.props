@@ -9,9 +9,9 @@
     <GenerateDocumentationFile>false</GenerateDocumentationFile>
 
     <!-- Product metadata -->
-    <Product>SonOG Software Deployment</Product>
-    <Company>SonOG</Company>
-    <Authors>Rudolf Kasper (SonOG)</Authors>
+    <Product>Software Deployment</Product>
+    <Company>Software Deployment</Company>
+    <Authors>Software Deployment</Authors>
     <Version>0.1.0</Version>
     <AssemblyVersion>0.1.0.0</AssemblyVersion>
     <FileVersion>0.1.0.0</FileVersion>

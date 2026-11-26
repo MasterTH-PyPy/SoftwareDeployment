@@ -52,7 +52,7 @@ builder.Services.AddScoped<DeploymentService>();
 builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
     .AddCookie(o =>
     {
-        o.Cookie.Name = "SonOGDeploy.Admin";
+        o.Cookie.Name = "SoftwareDeploy.Admin";
         o.Cookie.HttpOnly = true;
         o.Cookie.SecurePolicy = CookieSecurePolicy.Always; // TLS only
         o.Cookie.SameSite = SameSiteMode.Strict;

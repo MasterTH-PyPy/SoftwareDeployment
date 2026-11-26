@@ -24,7 +24,7 @@ public sealed class WindowsSecretProtector : ISecretProtector
 {
     // Extra entropy so another LocalMachine process can't trivially unprotect our blobs.
     private static readonly byte[] Entropy =
-        Encoding.UTF8.GetBytes("SonOG.SoftwareDeployment.v1");
+        Encoding.UTF8.GetBytes("SoftwareDeployment.Server.v1");
 
     public bool IsHardwareBacked => true;
 

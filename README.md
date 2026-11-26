@@ -1,4 +1,4 @@
-# SonOG Software Deployment
+# Software Deployment
 
 Zentrale Softwareverteilung für Windows-/AD-Umgebungen als Client-/Server-Lösung
 (.NET 10). Ablösung eines GPO-Logon-Skripts durch einen pollenden Client-Dienst
@@ -87,6 +87,6 @@ an und öffnet die Konsole zur Einrichtung von Dienstkonto, Kennwort und Dienst.
 
 ## Lizenz / Eigentum
 
-Internes Projekt der SonOG. Logo unter
+Logo unter
 `src/Server/SoftwareDeployment.Server/wwwroot/img/logo.svg` – bei Bedarf durch das
-offizielle SonOG-Logo ersetzen.
+eigene Logo ersetzen.

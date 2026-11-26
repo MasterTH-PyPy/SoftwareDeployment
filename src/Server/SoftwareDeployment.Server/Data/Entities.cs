@@ -128,7 +128,7 @@ public sealed class SettingsEntity
 
     public int PollIntervalSeconds { get; set; } = 300;
     public bool AutoApproveClients { get; set; }
-    public string OrganizationName { get; set; } = "SonOG";
+    public string OrganizationName { get; set; } = "Software Deployment";
 
     /// <summary>Admin password for the web interface (PBKDF2 hash).</summary>
     public string? AdminPasswordHash { get; set; }

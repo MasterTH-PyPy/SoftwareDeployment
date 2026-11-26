@@ -6,7 +6,7 @@
     <RootNamespace>SoftwareDeployment.Server</RootNamespace>
     <AssemblyName>SoftwareDeployment.Server</AssemblyName>
     <Description>Deployment server: client REST API + Blazor admin web interface, hostable as a Windows Service.</Description>
-    <UserSecretsId>sonog-softwaredeployment-server</UserSecretsId>
+    <UserSecretsId>softwaredeployment-server</UserSecretsId>
   </PropertyGroup>
 
   <ItemGroup>

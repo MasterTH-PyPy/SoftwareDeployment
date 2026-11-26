@@ -303,7 +303,7 @@ partial class MainForm
         this.MinimumSize = new System.Drawing.Size(700, 520);
         this.Name = "MainForm";
         this.StartPosition = System.Windows.Forms.FormStartPosition.CenterScreen;
-        this.Text = "SonOG Deployment Agent";
+        this.Text = "Software Deployment Agent";
         this.tabs.ResumeLayout(false);
         this.tabStatus.ResumeLayout(false);
         this.tabStatus.PerformLayout();

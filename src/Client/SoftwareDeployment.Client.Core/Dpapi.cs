@@ -12,7 +12,7 @@ namespace SoftwareDeployment.Client.Core;
 public static class Dpapi
 {
     private static readonly byte[] Entropy =
-        Encoding.UTF8.GetBytes("SonOG.DeploymentAgent.v1");
+        Encoding.UTF8.GetBytes("SoftwareDeployment.Agent.v1");
 
     public static string Protect(string plaintext)
     {

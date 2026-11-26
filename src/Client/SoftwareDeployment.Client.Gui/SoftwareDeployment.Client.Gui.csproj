@@ -5,7 +5,7 @@
     <TargetFramework>net10.0-windows</TargetFramework>
     <UseWindowsForms>true</UseWindowsForms>
     <RootNamespace>SoftwareDeployment.Client.Gui</RootNamespace>
-    <AssemblyName>SonOG.DeploymentAgent.Gui</AssemblyName>
+    <AssemblyName>SoftwareDeployment.Agent.Gui</AssemblyName>
     <Description>Deployment client GUI: registration, package overview and log.</Description>
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <Nullable>enable</Nullable>

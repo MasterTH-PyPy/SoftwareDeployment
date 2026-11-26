@@ -535,7 +535,7 @@ partial class MainForm
         this.MinimumSize = new System.Drawing.Size(716, 560);
         this.Name = "MainForm";
         this.StartPosition = System.Windows.Forms.FormStartPosition.CenterScreen;
-        this.Text = "SonOG Software Deployment – Server-Konsole";
+        this.Text = "Software Deployment – Server-Konsole";
         this.Load += new System.EventHandler(this.MainForm_Load);
         this.panelTop.ResumeLayout(false);
         this.panelTop.PerformLayout();

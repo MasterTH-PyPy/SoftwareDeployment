@@ -30,7 +30,7 @@ public sealed class SettingsService(
         SettingsEntity s = await EnsureAsync(db, ct);
         s.PollIntervalSeconds = Math.Clamp(pollIntervalSeconds, 30, 86_400);
         s.AutoApproveClients = autoApprove;
-        s.OrganizationName = string.IsNullOrWhiteSpace(organizationName) ? "SonOG" : organizationName.Trim();
+        s.OrganizationName = string.IsNullOrWhiteSpace(organizationName) ? "Software Deployment" : organizationName.Trim();
         await db.SaveChangesAsync(ct);
         branding.OrganizationName = s.OrganizationName; // reflect immediately in the UI
     }

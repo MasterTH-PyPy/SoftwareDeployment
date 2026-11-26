@@ -96,7 +96,7 @@ public partial class MainForm : Form
             DeploymentConstants.ServerServiceName,
             DeploymentConstants.ServerServiceDisplayName,
             exe, account, password,
-            "SonOG Software Deployment Server (HTTPS-API + Web-Interface).");
+            "Software Deployment Server (HTTPS-API + Web-Interface).");
 
         Log((ok ? "OK: " : "FEHLER: ") + log);
         RefreshServiceStatus();
