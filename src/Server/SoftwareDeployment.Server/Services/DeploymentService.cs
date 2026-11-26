@@ -44,18 +44,20 @@ public sealed class DeploymentService(
         IReadOnlyCollection<string> effectiveSids =
             directory.GetEffectiveSids(client.MachineName, req.CurrentUser);
 
-        if (effectiveSids.Count == 0)
-        {
-            if (!directory.IsAvailable)
-                logger.LogWarning("Directory unavailable; client {Machine} receives no tasks.", client.MachineName);
-            await db.SaveChangesAsync(ct);
-            return response;
-        }
+        if (effectiveSids.Count == 0 && !directory.IsAvailable)
+            logger.LogWarning(
+                "Directory unavailable; client {Machine} only receives direct (client-targeted) assignments.",
+                client.MachineName);
 
         var sidList = effectiveSids.ToList();
+        string clientIdKey = client.Id.ToString();
 
+        // AD-based assignments (computer/group/user via SID) AND direct client
+        // assignments (no AD needed). The direct path makes local/no-domain
+        // testing and pilot rollouts work.
         List<int> assignedPackageIds = await db.Assignments
-            .Where(a => sidList.Contains(a.TargetSid))
+            .Where(a => (a.TargetType == AssignmentTargetType.Client && a.TargetSid == clientIdKey)
+                        || (a.TargetType != AssignmentTargetType.Client && sidList.Contains(a.TargetSid)))
             .Select(a => a.PackageId)
             .Distinct()
             .ToListAsync(ct);

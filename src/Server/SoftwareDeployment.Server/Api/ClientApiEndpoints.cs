@@ -200,13 +200,16 @@ public static class ClientApiEndpoints
         if (pv is null || !storage.Exists(pv.PayloadStoredName))
             return Results.NotFound();
 
-        // Confirm the package is actually assigned to this client before serving it.
+        // Confirm the package is actually assigned to this client before serving it
+        // (AD-based or direct client assignment).
         IReadOnlyCollection<string> sids =
             directory.GetEffectiveSids(client.MachineName, client.LastKnownUser);
         var sidList = sids.ToList();
+        string clientIdKey = client.Id.ToString();
 
-        bool assigned = await db.Assignments
-            .AnyAsync(a => a.PackageId == packageId && sidList.Contains(a.TargetSid), ct);
+        bool assigned = await db.Assignments.AnyAsync(a => a.PackageId == packageId
+            && ((a.TargetType == AssignmentTargetType.Client && a.TargetSid == clientIdKey)
+                || (a.TargetType != AssignmentTargetType.Client && sidList.Contains(a.TargetSid))), ct);
 
         if (!assigned)
             return Results.StatusCode(StatusCodes.Status403Forbidden);

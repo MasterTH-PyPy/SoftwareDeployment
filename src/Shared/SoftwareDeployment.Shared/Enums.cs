@@ -27,12 +27,19 @@ public enum ClientApprovalStatus
     Rejected = 2,
 }
 
-/// <summary>Kind of Active Directory principal a package assignment targets.</summary>
+/// <summary>What a package assignment targets.</summary>
 public enum AssignmentTargetType
 {
+    // AD principals (require a domain-joined server).
     Computer = 0,
     Group = 1,
     User = 2,
+
+    /// <summary>
+    /// A directly registered client, matched by its client id — needs no AD.
+    /// Used for local testing without a domain and for pilot rollouts.
+    /// </summary>
+    Client = 3,
 }
 
 /// <summary>Outcome of a single install attempt, reported back by the client.</summary>

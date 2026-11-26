@@ -40,11 +40,12 @@ else
         <div class="field-row">
             <div class="field">
                 <label>Version</label>
-                <input type="text" @bind="_version" placeholder="z. B. 23.01" />
+                <input type="text" @bind="_version" placeholder="z. B. 23.01 (leer = aus Datei lesen)" />
+                <button class="btn btn-sm" type="button" @onclick="ReadVersionFromFile" style="margin-top:.4rem;">Version aus Datei lesen</button>
             </div>
             <div class="field">
                 <label>Installer-Typ</label>
-                <select @bind="_installerType">
+                <select @bind="_installerType" @bind:after="OnTypeChanged">
                     <option value="Exe">EXE</option>
                     <option value="Msi">MSI (msiexec)</option>
                     <option value="Bat">Batch (cmd)</option>
@@ -60,6 +61,7 @@ else
             <div class="field">
                 <label>Argumente</label>
                 <input type="text" @bind="_arguments" placeholder="/qn /norestart" />
+                <span class="muted" style="font-size:.8rem;">Silent je nach Installer: MSI <span class="mono">/qn /norestart</span>, NSIS <span class="mono">/S</span>, Inno <span class="mono">/VERYSILENT /SUPPRESSMSGBOXES /NORESTART</span></span>
             </div>
         </div>
         <div class="field-row">
@@ -186,6 +188,39 @@ else
             }
         }
 
+        <h2 style="margin-top:1.25rem;">Direkt an registrierten Client (ohne AD)</h2>
+        <p class="muted">Ideal für lokale Tests ohne Domäne und für Pilot-Rollouts: Paket einem konkret angemeldeten Rechner zuweisen – unabhängig von Active Directory.</p>
+        @if (_clients.Count == 0)
+        {
+            <div class="table-empty">Noch keine Clients registriert.</div>
+        }
+        else
+        {
+            <table>
+                <thead><tr><th>Computer</th><th>Domäne</th><th>Status</th><th></th></tr></thead>
+                <tbody>
+                    @foreach (var c in _clients)
+                    {
+                        <tr>
+                            <td><strong>@c.MachineName</strong></td>
+                            <td class="mono">@c.Domain</td>
+                            <td>@StatusBadge.Render(c.Status)</td>
+                            <td>
+                                @if (_assignedClientIds.Contains(c.Id))
+                                {
+                                    <span class="muted">zugewiesen</span>
+                                }
+                                else
+                                {
+                                    <button class="btn btn-sm btn-primary" @onclick="() => AddClientAssignment(c)">Zuweisen</button>
+                                }
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        }
+
         <h2 style="margin-top:1.25rem;">Aktuelle Zuweisungen</h2>
         @if (_assignments.Count == 0)
         {
@@ -217,6 +252,8 @@ else
     private PackageEntity? _package;
     private List<PackageVersionEntity> _versions = new();
     private List<AssignmentEntity> _assignments = new();
+    private List<ClientEntity> _clients = new();
+    private HashSet<Guid> _assignedClientIds = new();
 
     // upload form
     private string _version = "";
@@ -253,6 +290,14 @@ else
             .Where(a => a.PackageId == Id)
             .OrderBy(a => a.TargetType).ThenBy(a => a.TargetName)
             .ToListAsync();
+
+        _clients = await db.Clients.OrderBy(c => c.MachineName).ToListAsync();
+
+        _assignedClientIds = _assignments
+            .Where(a => a.TargetType == AssignmentTargetType.Client)
+            .Select(a => Guid.TryParse(a.TargetSid, out var g) ? g : Guid.Empty)
+            .Where(g => g != Guid.Empty)
+            .ToHashSet();
     }
 
     private async Task ToggleEnabled(ChangeEventArgs e)
@@ -264,36 +309,117 @@ else
         await LoadAsync();
     }
 
-    private void OnFileSelected(InputFileChangeEventArgs e) => _selectedFile = e.File;
+    // On selection: derive installer type, archive flag, command file and silent
+    // defaults from the file name (no content read, so large files aren't streamed).
+    private void OnFileSelected(InputFileChangeEventArgs e)
+    {
+        _selectedFile = e.File;
+        string name = _selectedFile.Name;
+
+        _payloadIsArchive = PackageInspector.IsArchive(name);
+
+        InstallerType? detected = PackageInspector.DetectType(name);
+        if (detected is not null) _installerType = detected.Value.ToString();
+
+        if (!_payloadIsArchive) _commandFile = name;
+
+        if (string.IsNullOrWhiteSpace(_arguments))
+            _arguments = PackageInspector.DefaultArguments(Enum.Parse<InstallerType>(_installerType));
+    }
+
+    // When the type is changed manually, fill in silent defaults if empty.
+    private void OnTypeChanged()
+    {
+        if (string.IsNullOrWhiteSpace(_arguments))
+            _arguments = PackageInspector.DefaultArguments(Enum.Parse<InstallerType>(_installerType));
+    }
+
+    // Stream the selected file once to a temp path and read its version (MSI/EXE).
+    private async Task ReadVersionFromFile()
+    {
+        _uploadError = null;
+        if (_selectedFile is null) { _uploadError = "Bitte zuerst eine Installationsdatei auswählen."; return; }
+
+        var type = Enum.Parse<InstallerType>(_installerType);
+        if (_payloadIsArchive || type is InstallerType.Bat or InstallerType.PowerShell)
+        {
+            _uploadError = "Für dieses Format kann keine Version automatisch gelesen werden – bitte manuell eintragen.";
+            return;
+        }
+
+        string tmp = Path.Combine(Path.GetTempPath(),
+            Guid.NewGuid().ToString("N") + Path.GetExtension(_selectedFile.Name));
+        try
+        {
+            long max = Options.Value.MaxUploadMegabytes * 1024 * 1024;
+            await using (var src = _selectedFile.OpenReadStream(max))
+            await using (var dst = File.Create(tmp))
+                await src.CopyToAsync(dst);
+
+            string? v = PackageInspector.ReadVersion(tmp, type);
+            if (!string.IsNullOrWhiteSpace(v)) _version = v!;
+            else _uploadError = "Version konnte aus der Datei nicht gelesen werden – bitte manuell eintragen.";
+        }
+        catch (Exception ex)
+        {
+            _uploadError = "Lesen fehlgeschlagen: " + ex.Message;
+        }
+        finally
+        {
+            try { if (File.Exists(tmp)) File.Delete(tmp); } catch { /* ignore */ }
+        }
+    }
 
     private async Task Upload()
     {
         _uploadError = null;
         _uploadOk = false;
 
-        string version = _version.Trim();
-        if (string.IsNullOrEmpty(version)) { _uploadError = "Bitte eine Version angeben."; return; }
-        if (string.IsNullOrWhiteSpace(_commandFile)) { _uploadError = "Bitte die auszuführende Datei angeben."; return; }
         if (_selectedFile is null) { _uploadError = "Bitte eine Installationsdatei auswählen."; return; }
+        if (string.IsNullOrWhiteSpace(_commandFile)) { _uploadError = "Bitte die auszuführende Datei angeben."; return; }
+
+        var type = Enum.Parse<InstallerType>(_installerType);
 
         _uploading = true;
         try
         {
-            await using var checkDb = await DbFactory.CreateDbContextAsync();
-            if (await checkDb.PackageVersions.AnyAsync(v => v.PackageId == Id && v.Version == version))
-            {
-                _uploadError = "Diese Version existiert bereits.";
-                return;
-            }
-
             long maxBytes = Options.Value.MaxUploadMegabytes * 1024 * 1024;
             StoredPayload stored;
             await using (var stream = _selectedFile.OpenReadStream(maxBytes))
             {
                 stored = await Storage.SaveAsync(stream);
             }
+            string storedPath = Storage.GetPath(stored.StoredName);
+
+            // Version: use what was entered, else try to read it from the payload.
+            string version = _version.Trim();
+            if (string.IsNullOrEmpty(version))
+                version = PackageInspector.ReadVersion(storedPath, type)?.Trim() ?? "";
+            if (string.IsNullOrEmpty(version))
+            {
+                Storage.Delete(stored.StoredName);
+                _uploadError = "Version nicht erkannt – bitte manuell eintragen.";
+                return;
+            }
+
+            // Static ("dry") validation before committing anything.
+            List<string> problems = PackageInspector.ValidatePayload(
+                storedPath, _commandFile.Trim(), type, _payloadIsArchive, _successExitCodes);
+            if (problems.Count > 0)
+            {
+                Storage.Delete(stored.StoredName);
+                _uploadError = "Prüfung fehlgeschlagen: " + string.Join(" ", problems);
+                return;
+            }
 
             await using var db = await DbFactory.CreateDbContextAsync();
+            if (await db.PackageVersions.AnyAsync(v => v.PackageId == Id && v.Version == version))
+            {
+                Storage.Delete(stored.StoredName);
+                _uploadError = $"Version '{version}' existiert bereits.";
+                return;
+            }
+
             if (_makeCurrent)
             {
                 await db.PackageVersions
@@ -305,7 +431,7 @@ else
             {
                 PackageId = Id,
                 Version = version,
-                InstallerType = Enum.Parse<InstallerType>(_installerType),
+                InstallerType = type,
                 CommandFileName = _commandFile.Trim(),
                 Arguments = _arguments?.Trim() ?? "",
                 SuccessExitCodes = string.IsNullOrWhiteSpace(_successExitCodes) ? "0,3010" : _successExitCodes.Trim(),
@@ -395,6 +521,25 @@ else
         await LoadAsync();
     }
 
+    private async Task AddClientAssignment(ClientEntity c)
+    {
+        string sid = c.Id.ToString();
+        await using var db = await DbFactory.CreateDbContextAsync();
+        if (!await db.Assignments.AnyAsync(a => a.PackageId == Id && a.TargetSid == sid))
+        {
+            db.Assignments.Add(new AssignmentEntity
+            {
+                PackageId = Id,
+                TargetType = AssignmentTargetType.Client,
+                TargetSid = sid,
+                TargetName = c.MachineName,
+                CreatedAtUtc = DateTime.UtcNow,
+            });
+            await db.SaveChangesAsync();
+        }
+        await LoadAsync();
+    }
+
     private async Task RemoveAssignment(int assignmentId)
     {
         await using var db = await DbFactory.CreateDbContextAsync();
@@ -408,6 +553,7 @@ else
         AssignmentTargetType.Computer => "Computer",
         AssignmentTargetType.Group => "Gruppe",
         AssignmentTargetType.User => "Benutzer",
+        AssignmentTargetType.Client => "Client (direkt)",
         _ => t.ToString(),
     };
 
