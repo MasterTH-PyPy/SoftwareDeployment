@@ -1,6 +1,6 @@
 @page "/settings"
 @rendermode InteractiveServer
-@inject SettingsService Settings
+@inject SettingsService SettingsSvc
 @inject IDirectoryService Ad
 
 <h1>Einstellungen</h1>
@@ -105,29 +105,29 @@
 
     protected override async Task OnInitializedAsync()
     {
-        var s = await Settings.GetAsync();
+        var s = await SettingsSvc.GetAsync();
         _pollInterval = s.PollIntervalSeconds;
         _autoApprove = s.AutoApproveClients;
         _orgName = s.OrganizationName;
-        _enrollmentKey = await Settings.GetEnrollmentKeyAsync();
+        _enrollmentKey = await SettingsSvc.GetEnrollmentKeyAsync();
     }
 
     private async Task SaveGeneral()
     {
-        await Settings.SaveGeneralAsync(_pollInterval, _autoApprove, _orgName);
+        await SettingsSvc.SaveGeneralAsync(_pollInterval, _autoApprove, _orgName);
         _generalSaved = true;
     }
 
     private async Task RegenerateKey()
     {
-        _enrollmentKey = await Settings.RegenerateEnrollmentKeyAsync();
+        _enrollmentKey = await SettingsSvc.RegenerateEnrollmentKeyAsync();
         _keyRegenerated = true;
     }
 
     private async Task ChangePassword()
     {
         _pwMessage = null;
-        if (!await Settings.VerifyAdminPasswordAsync(_oldPw))
+        if (!await SettingsSvc.VerifyAdminPasswordAsync(_oldPw))
         {
             _pwOk = false; _pwMessage = "Aktuelles Kennwort ist falsch.";
             return;
@@ -142,7 +142,7 @@
             _pwOk = false; _pwMessage = "Die neuen Kennwörter stimmen nicht überein.";
             return;
         }
-        await Settings.SetAdminPasswordAsync(_newPw);
+        await SettingsSvc.SetAdminPasswordAsync(_newPw);
         _oldPw = _newPw = _confirmPw = "";
         _pwOk = true; _pwMessage = "Kennwort geändert.";
     }
