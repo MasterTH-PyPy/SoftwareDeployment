@@ -52,10 +52,12 @@ public static class AccountEndpoints
         return Results.Redirect("/");
     }
 
-    private static async Task<IResult> LogoutAsync(HttpContext http)
+    // Takes only HttpContext, so it binds as a RequestDelegate (the return value
+    // would be discarded). Write the redirect directly instead of returning IResult.
+    private static async Task LogoutAsync(HttpContext http)
     {
         await http.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme);
-        return Results.Redirect("/account/login");
+        http.Response.Redirect("/account/login");
     }
 
     private static Task SignInAsync(HttpContext http)
