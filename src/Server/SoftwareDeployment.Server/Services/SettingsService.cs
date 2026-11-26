@@ -12,12 +12,15 @@ namespace SoftwareDeployment.Server.Services;
 /// </summary>
 public sealed class SettingsService(
     IDbContextFactory<DeploymentDbContext> dbFactory,
-    ISecretProtector protector)
+    ISecretProtector protector,
+    BrandingService branding)
 {
     public async Task<SettingsEntity> GetAsync(CancellationToken ct = default)
     {
         await using DeploymentDbContext db = await dbFactory.CreateDbContextAsync(ct);
-        return await EnsureAsync(db, ct);
+        SettingsEntity s = await EnsureAsync(db, ct);
+        branding.OrganizationName = s.OrganizationName; // keep display name in sync
+        return s;
     }
 
     public async Task SaveGeneralAsync(
@@ -29,6 +32,7 @@ public sealed class SettingsService(
         s.AutoApproveClients = autoApprove;
         s.OrganizationName = string.IsNullOrWhiteSpace(organizationName) ? "SonOG" : organizationName.Trim();
         await db.SaveChangesAsync(ct);
+        branding.OrganizationName = s.OrganizationName; // reflect immediately in the UI
     }
 
     // ---- admin password --------------------------------------------------

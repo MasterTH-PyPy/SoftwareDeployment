@@ -44,6 +44,7 @@ else
 }
 
 builder.Services.AddSingleton<PackageStorage>();
+builder.Services.AddSingleton<BrandingService>();
 builder.Services.AddScoped<SettingsService>();
 builder.Services.AddScoped<DeploymentService>();
 

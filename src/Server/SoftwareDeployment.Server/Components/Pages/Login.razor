@@ -1,11 +1,13 @@
 @page "/account/login"
 @layout SoftwareDeployment.Server.Components.Layout.EmptyLayout
 @inject SettingsService Settings
+@inject BrandingService Branding
 
 <div class="auth-card">
     <div class="auth-brand">
-        <img src="/img/logo.svg" alt="SonOG" />
-        <div class="title">SonOG Software Deployment</div>
+        <img src="/img/logo.svg" alt="Logo" />
+        <div class="title">@Branding.OrganizationName</div>
+        <div class="brand-sub muted">@Branding.ProductName</div>
     </div>
 
     @if (!_hasPassword)
