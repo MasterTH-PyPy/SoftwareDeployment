@@ -1,7 +1,9 @@
 @page "/settings"
 @rendermode InteractiveServer
+@using Microsoft.JSInterop
 @inject SettingsService SettingsSvc
 @inject IDirectoryService Ad
+@inject IJSRuntime JS
 
 <h1>Einstellungen</h1>
 
@@ -38,20 +40,29 @@
         überschreibt es – am einfachsten über die CSS-Variablen im <code>:root</code>.
         Änderungen greifen nach einem Neuladen der Seite.
     </p>
-    <div class="field">
-        <textarea rows="12" class="mono" @bind="_customCss"
-                  placeholder=":root { --primary: #0a7d2c; --bg-sidebar: #14321f; }"></textarea>
+    <div style="display:flex; gap:1rem; flex-wrap:wrap; align-items:stretch;">
+        <div style="flex:1; min-width:300px; display:flex; flex-direction:column;">
+            <label>Eigenes CSS</label>
+            <textarea rows="16" class="mono" style="flex:1; resize:vertical;"
+                      @bind="_customCss" @bind:event="oninput" @bind:after="PushPreview"
+                      placeholder=":root { --primary: #0a7d2c; --bg-sidebar: #14321f; }"></textarea>
+        </div>
+        <div style="flex:1; min-width:300px; display:flex; flex-direction:column;">
+            <label>Live-Vorschau (ungespeichert)</label>
+            <iframe id="cssPreviewFrame" title="CSS-Vorschau" srcdoc="@_previewSrcDoc"
+                    style="flex:1; min-height:360px; width:100%; border:1px solid var(--border); border-radius:8px; background:#fff;"></iframe>
+        </div>
     </div>
-    <details>
+    <details style="margin-top:.5rem;">
         <summary class="muted" style="cursor:pointer;">Verfügbare CSS-Variablen</summary>
         <pre class="mono" style="white-space:pre-wrap; margin:.5rem 0;">--primary, --primary-hover, --bg-sidebar, --surface, --surface-muted,
 --border, --text, --text-muted, --success, --warning, --danger, --radius</pre>
     </details>
     @if (_cssSaved)
     {
-        <div class="alert alert-success">Gespeichert – Seite neu laden, um die neue Darstellung zu sehen.</div>
+        <div class="alert alert-success">Gespeichert und für alle übernommen (nach Neuladen der Seite).</div>
     }
-    <div class="actions">
+    <div class="actions" style="margin-top:.5rem;">
         <button class="btn" @onclick="InsertCssTemplate">Vorlage einfügen</button>
         <button class="btn btn-primary" @onclick="SaveCss">CSS speichern</button>
     </div>
@@ -124,6 +135,7 @@
 
     private string _customCss = "";
     private bool _cssSaved;
+    private string _previewSrcDoc = "";
 
     private string _enrollmentKey = "";
     private bool _keyRegenerated;
@@ -139,7 +151,15 @@
         _autoApprove = s.AutoApproveClients;
         _orgName = s.OrganizationName;
         _customCss = s.CustomCss ?? "";
+        _previewSrcDoc = BuildPreviewDoc(_customCss);
         _enrollmentKey = await SettingsSvc.GetEnrollmentKeyAsync();
+    }
+
+    // Push the current (unsaved) CSS into the preview iframe live, without reload.
+    private async Task PushPreview()
+    {
+        try { await JS.InvokeVoidAsync("setPreviewCss", _customCss); }
+        catch { /* iframe not ready yet – initial CSS is already baked into srcdoc */ }
     }
 
     private async Task SaveGeneral()
@@ -154,7 +174,7 @@
         _cssSaved = true;
     }
 
-    private void InsertCssTemplate()
+    private async Task InsertCssTemplate()
     {
         if (string.IsNullOrWhiteSpace(_customCss))
         {
@@ -167,8 +187,43 @@
                 "    --text: #0f172a;\n" +
                 "    --radius: 10px;\n" +
                 "}\n";
+            await PushPreview();
         }
     }
+
+    // A small, representative snapshot of the UI that loads the real app.css.
+    // #userCss carries the initial (saved) CSS; live edits replace it via JS.
+    private static string BuildPreviewDoc(string css) =>
+        "<!DOCTYPE html><html lang=\"de\"><head><meta charset=\"utf-8\">" +
+        "<link rel=\"stylesheet\" href=\"/css/app.css\">" +
+        "<style id=\"userCss\">" + css + "</style>" +
+        "<style>html,body{margin:0;height:100%;}</style></head><body>" +
+        "<div class=\"app-shell\" style=\"min-height:340px;\">" +
+          "<aside class=\"sidebar\" style=\"width:170px;\">" +
+            "<div class=\"brand\"><div class=\"brand-text\">" +
+              "<span class=\"brand-title\">Beispiel</span><span class=\"brand-sub\">Vorschau</span></div></div>" +
+            "<nav class=\"nav\">" +
+              "<a class=\"nav-item active\">Dashboard</a>" +
+              "<a class=\"nav-item\">Pakete</a>" +
+              "<a class=\"nav-item\">Einstellungen</a></nav></aside>" +
+          "<div class=\"main\">" +
+            "<header class=\"topbar\"><div class=\"topbar-spacer\"></div><a class=\"logout\">Abmelden</a></header>" +
+            "<main class=\"content\">" +
+              "<div class=\"card\"><h2>Beispielkarte</h2>" +
+                "<div class=\"actions\" style=\"margin-bottom:.75rem;\">" +
+                  "<button class=\"btn btn-primary\">Primär</button>" +
+                  "<button class=\"btn btn-success\">Erfolg</button>" +
+                  "<button class=\"btn btn-danger\">Löschen</button>" +
+                  "<button class=\"btn btn-sm\">Klein</button></div>" +
+                "<p><span class=\"badge badge-approved\">Freigegeben</span> " +
+                  "<span class=\"badge badge-pending\">Offen</span> " +
+                  "<span class=\"badge badge-failed\">Fehler</span></p>" +
+                "<table><thead><tr><th>Name</th><th>Status</th></tr></thead><tbody>" +
+                  "<tr><td>Client-01</td><td><span class=\"badge badge-approved\">Aktiv</span></td></tr>" +
+                  "<tr><td>Client-02</td><td><span class=\"badge badge-muted\">—</span></td></tr></tbody></table>" +
+                "<div class=\"field\" style=\"margin-top:.75rem;\"><label>Eingabe</label>" +
+                  "<input type=\"text\" value=\"Beispiel\"></div>" +
+              "</div></main></div></div></body></html>";
 
     private async Task RegenerateKey()
     {
