@@ -8,6 +8,10 @@
     <title>@Branding.OrganizationName – @Branding.ProductName</title>
     <link rel="icon" type="image/svg+xml" href="/img/logo.svg" />
     <link rel="stylesheet" href="/css/app.css" />
+    @if (!string.IsNullOrWhiteSpace(Branding.CustomCss))
+    {
+        <style>@((MarkupString)Branding.CustomCss)</style>
+    }
     <HeadOutlet />
 </head>
 <body>

@@ -32,6 +32,32 @@
 </div>
 
 <div class="card">
+    <h2>Darstellung (eigenes CSS)</h2>
+    <p class="muted">
+        Für die Anpassung an den Kunden. Dieses CSS wird nach dem Basis-Stylesheet geladen und
+        überschreibt es – am einfachsten über die CSS-Variablen im <code>:root</code>.
+        Änderungen greifen nach einem Neuladen der Seite.
+    </p>
+    <div class="field">
+        <textarea rows="12" class="mono" @bind="_customCss"
+                  placeholder=":root { --primary: #0a7d2c; --bg-sidebar: #14321f; }"></textarea>
+    </div>
+    <details>
+        <summary class="muted" style="cursor:pointer;">Verfügbare CSS-Variablen</summary>
+        <pre class="mono" style="white-space:pre-wrap; margin:.5rem 0;">--primary, --primary-hover, --bg-sidebar, --surface, --surface-muted,
+--border, --text, --text-muted, --success, --warning, --danger, --radius</pre>
+    </details>
+    @if (_cssSaved)
+    {
+        <div class="alert alert-success">Gespeichert – Seite neu laden, um die neue Darstellung zu sehen.</div>
+    }
+    <div class="actions">
+        <button class="btn" @onclick="InsertCssTemplate">Vorlage einfügen</button>
+        <button class="btn btn-primary" @onclick="SaveCss">CSS speichern</button>
+    </div>
+</div>
+
+<div class="card">
     <h2>Installations-Key (Enrollment)</h2>
     <p class="muted">
         Dieser Schlüssel muss bei der Client-Installation eingegeben werden. Ohne gültigen
@@ -96,6 +122,9 @@
     private string _orgName = "Software Deployment";
     private bool _generalSaved;
 
+    private string _customCss = "";
+    private bool _cssSaved;
+
     private string _enrollmentKey = "";
     private bool _keyRegenerated;
 
@@ -109,6 +138,7 @@
         _pollInterval = s.PollIntervalSeconds;
         _autoApprove = s.AutoApproveClients;
         _orgName = s.OrganizationName;
+        _customCss = s.CustomCss ?? "";
         _enrollmentKey = await SettingsSvc.GetEnrollmentKeyAsync();
     }
 
@@ -116,6 +146,28 @@
     {
         await SettingsSvc.SaveGeneralAsync(_pollInterval, _autoApprove, _orgName);
         _generalSaved = true;
+    }
+
+    private async Task SaveCss()
+    {
+        await SettingsSvc.SaveCustomCssAsync(_customCss);
+        _cssSaved = true;
+    }
+
+    private void InsertCssTemplate()
+    {
+        if (string.IsNullOrWhiteSpace(_customCss))
+        {
+            _customCss =
+                ":root {\n" +
+                "    --primary: #0a7d2c;        /* Akzent-/Buttonfarbe */\n" +
+                "    --primary-hover: #086423;\n" +
+                "    --bg-sidebar: #14321f;     /* Seitenleiste */\n" +
+                "    --surface: #ffffff;        /* Karten/Flächen */\n" +
+                "    --text: #0f172a;\n" +
+                "    --radius: 10px;\n" +
+                "}\n";
+        }
     }
 
     private async Task RegenerateKey()

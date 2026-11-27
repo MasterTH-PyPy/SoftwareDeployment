@@ -19,4 +19,7 @@ public sealed class BrandingService
 
     /// <summary>Fixed product descriptor shown as a subtitle.</summary>
     public string ProductName => "Softwareverteilung";
+
+    /// <summary>Customer CSS injected after the base stylesheet (empty = default theme).</summary>
+    public string CustomCss { get; set; } = string.Empty;
 }

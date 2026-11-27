@@ -130,6 +130,12 @@ public sealed class SettingsEntity
     public bool AutoApproveClients { get; set; }
     public string OrganizationName { get; set; } = "Software Deployment";
 
+    /// <summary>
+    /// Customer-specific CSS injected after the base stylesheet, so the look can be
+    /// rebranded (overriding the :root CSS variables) without recompiling.
+    /// </summary>
+    public string? CustomCss { get; set; }
+
     /// <summary>Admin password for the web interface (PBKDF2 hash).</summary>
     public string? AdminPasswordHash { get; set; }
 

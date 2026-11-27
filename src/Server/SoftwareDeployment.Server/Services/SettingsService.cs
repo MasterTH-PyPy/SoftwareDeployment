@@ -20,7 +20,17 @@ public sealed class SettingsService(
         await using DeploymentDbContext db = await dbFactory.CreateDbContextAsync(ct);
         SettingsEntity s = await EnsureAsync(db, ct);
         branding.OrganizationName = s.OrganizationName; // keep display name in sync
+        branding.CustomCss = s.CustomCss ?? string.Empty;
         return s;
+    }
+
+    public async Task SaveCustomCssAsync(string? customCss, CancellationToken ct = default)
+    {
+        await using DeploymentDbContext db = await dbFactory.CreateDbContextAsync(ct);
+        SettingsEntity s = await EnsureAsync(db, ct);
+        s.CustomCss = string.IsNullOrWhiteSpace(customCss) ? null : customCss;
+        await db.SaveChangesAsync(ct);
+        branding.CustomCss = s.CustomCss ?? string.Empty; // apply on next full page load
     }
 
     public async Task SaveGeneralAsync(
