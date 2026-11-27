@@ -124,7 +124,7 @@ else
                             <td class="mono">@v.CommandFileName</td>
                             <td class="mono">@FormatSize(v.PayloadSize)</td>
                             <td class="mono" title="@v.PayloadSha256">@Short(v.PayloadSha256)</td>
-                            <td>@(v.IsCurrent ? StatusBadge.RenderEnabled() : "")</td>
+                            <td>@StatusBadge.Current(v.IsCurrent)</td>
                             <td class="actions">
                                 @if (!v.IsCurrent)
                                 {
